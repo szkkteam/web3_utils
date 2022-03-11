@@ -17,8 +17,12 @@ class Router(IContract):
     def buy(self, token_in: Token, token_out: Token, amount, slippage=0.01, timeout=1000, speed=1):
         web3 = Web3Provider()
 
-        gas_price = web3.eth.gas_price * speed
-        priority = Web3.toWei(5*speed, 'gwei') if speed > 1 else None
+        priority = int(Web3.toWei(5 * speed, 'gwei')) if speed > 1 else None
+        gas_price = int(web3.eth.gas_price * speed)
+
+        if gas_price < priority:
+            gas_price += priority
+
 
         if not token_in.is_approved(self.address, Web3.toWei(amount, 'ether')):
             token_in.approve(self.address, Web3.toWei(amount, 'ether'))
