@@ -42,6 +42,8 @@ class Config:
             return Config(network, config[network])
 
     def get_token_address(self, token_name_or_address):
+        token_name_or_address = token_name_or_address.lower()
+
         if token_name_or_address in self.store['tokens']['items']:
             return Web3.toChecksumAddress(self.store['tokens']['items'][token_name_or_address])
         return Web3.toChecksumAddress(token_name_or_address)
@@ -58,5 +60,5 @@ class Config:
         if dex is None:
             dex = self.store['dex']['default']
 
-        return self.store['dex'][dex]
+        return self.store['dex'][dex.lower()]
 
