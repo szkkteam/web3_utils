@@ -13,7 +13,8 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Ape bot')
     parser.add_argument('-n', '--network', help="Blockchain network")
     parser.add_argument('-s', '--speed', help="Speed multiplier for gas", default=1, type=int)
-    parser.add_argument('-f', '--fee', help="Support fee", default=False, type=bool)
+    parser.add_argument('-f', '--fee', help="Support fee", default=True, type=bool)
+    parser.add_argument('-t', '--timeout', help="Timeout for swap", default=1000, type=int)
 
     return parser.parse_args()
 
@@ -32,16 +33,17 @@ def run():
     if not token_in.is_approved:
         token_in.approve(spender=router)
 
-    token_out_addr = input("Token name or contract address: ")
     buy_amount = input("Buy amount: ")
+    token_out_addr = input("Token name or contract address: ")
+
 
     start = time.time()
     token_out = Token(config.get_token_address(token_out_addr), get_abi(config.token_abi))
 
     if args.fee:
-        tx = router.buy_with_fee(token_in, token_out, float(buy_amount), speed=args.speed)
+        tx = router.buy_with_fee(token_in, token_out, float(buy_amount), speed=args.speed, timeout=args.timeout)
     else:
-        tx = router.buy(token_in, token_out, float(buy_amount), speed=args.speed)
+        tx = router.buy(token_in, token_out, float(buy_amount), speed=args.speed, timeout=args.timeout)
 
     print("Tx: ", tx['transactionHash'].hex())
     total = time.time() - start
