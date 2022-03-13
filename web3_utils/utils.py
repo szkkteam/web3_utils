@@ -15,7 +15,8 @@ class Singleton(type):
 #            cls._instances[cls].__init__(*args, **kwargs)
         return cls._instances[cls]
 
-
+def get_abi(*args):
+    return os.path.join(os.path.dirname(os.path.realpath(__file__)), 'abi', *args)
 
 class Web3Provider(Web3, metaclass=Singleton):
 
@@ -23,9 +24,9 @@ class Web3Provider(Web3, metaclass=Singleton):
         super().__init__(*args, **kwargs)
 
 
-class Config:
+class Config(metaclass=Singleton):
 
-    def __init__(self, network, raw_config, *args, **kwargs):
+    def __init__(self, network=None, raw_config=None, *args, **kwargs):
         self.network = network
         self.store = raw_config
 
@@ -45,6 +46,9 @@ class Config:
         token_name_or_address = token_name_or_address.lower()
 
         if token_name_or_address in self.store['tokens']['items']:
+            if isinstance(self.store['tokens']['items'][token_name_or_address], dict):
+                return Web3.toChecksumAddress(self.store['tokens']['items'][token_name_or_address]['address'])
+
             return Web3.toChecksumAddress(self.store['tokens']['items'][token_name_or_address])
         return Web3.toChecksumAddress(token_name_or_address)
 
@@ -52,8 +56,10 @@ class Config:
     def http_provider(self):
         return self.store['provider']['http']
 
-    @property
-    def token_abi(self):
+
+    def get_token_abi(self, token):
+        if token in self.store['tokens']['items'] and isinstance(self.store['tokens']['items'][token], dict):
+            return self.store['tokens']['items'][token]['abi']
         return self.store['tokens']['abi']
 
     def get_dex(self, dex=None):

@@ -2,7 +2,10 @@ import os
 
 from .contract import (
     Token,
-    Router
+    Erc20,
+    Router,
+    Factory,
+    Pair
 )
 
 from .utils import (

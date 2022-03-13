@@ -5,6 +5,7 @@ from web3 import Web3
 from functools import wraps
 # Internal package improts
 from web3_utils.utils import Web3Provider
+from ..utils import Config
 
 
 def require_connected(func):
@@ -52,6 +53,14 @@ class IContract (object):
 
     @require_connected
     def _create_transaction_params(self, value=0, max_fee_per_gas=None, max_priority_fee=None, gas_limit=None):
+        config = Config()
+        if config.network == 'bsc':
+            return self.__create_transaction_params_bsc(value, max_fee_per_gas, gas_limit)
+        else:
+            return self.__create_transaction_params(value, max_fee_per_gas, max_priority_fee, gas_limit)
+
+    @require_connected
+    def __create_transaction_params(self, value=0, max_fee_per_gas=None, max_priority_fee=None, gas_limit=None):
         web3 = Web3Provider()
 
         if not gas_limit:
@@ -70,3 +79,21 @@ class IContract (object):
             #'maxFeePerGas': 20000000000, 'maxPriorityFeePerGas': 1000000000,
             'nonce': web3.eth.getTransactionCount(self._wallet.address)
         }
+
+    @require_connected
+    def __create_transaction_params_bsc(self, value=0, max_fee_per_gas=None, gas_limit=None):
+        web3 = Web3Provider()
+
+        if not gas_limit:
+            gas_limit = self.gas_limit
+        if not max_fee_per_gas:
+            max_fee_per_gas = web3.eth.gas_price
+
+        return {
+            'from': self._wallet.address,
+            'value': value,
+            'gas': gas_limit,
+            'gasPrice': max_fee_per_gas,
+            'nonce': web3.eth.getTransactionCount(self._wallet.address)
+        }
+
