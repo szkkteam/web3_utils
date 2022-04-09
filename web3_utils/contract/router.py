@@ -43,3 +43,8 @@ class Router(IContract):
     def buy_with_fee(self, token_in: Token, token_out: Token, amount, slippage=0.01, timeout=1000, speed=1):
         return self._buy(self.contract.functions.swapExactTokensForTokensSupportingFeeOnTransferTokens, token_in, token_out, amount, slippage,
                          timeout, speed)
+
+    @require_connected
+    def get_amounts_out(self, amount_in, token_in: Token, token_out : Token):
+        _, ret_val =  self.contract.functions.getAmountsOut(amount_in, [token_in.address, token_out.address]).call()
+        return ret_val

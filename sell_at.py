@@ -11,6 +11,7 @@ from web3_utils import Router, Token, Web3Provider, get_abi, Config, Factory, Pa
 
 p_key = os.environ.get('PRIVATE_KEY')
 
+
 def parse_args():
     parser = argparse.ArgumentParser(description='Ape bot')
     parser.add_argument('-n', '--network', help="Blockchain network")
@@ -20,8 +21,10 @@ def parse_args():
     parser.add_argument('-t', '--timeout', help="Timeout for swap", default=1000, type=int)
     parser.add_argument('-l', '--limit', help="Multiplier limit for sell", default=2.5, type=float)
     parser.add_argument('-i', '--input_token', help="Input token sticker", default='weth')
+    parser.add_argument('-p', '--period', help="Sleep period", type=float, default=3)
 
     return parser.parse_known_args()
+
 
 # TODO: Base gwei should be 1.6x
 # In case of delayed launch, check for enableTrading() function call. TODO: Poll isTradingEnable variable, or configurable variable
@@ -33,9 +36,11 @@ def run():
     w3 = Web3Provider(Web3Provider.HTTPProvider(config.http_provider))
     account = w3.eth.account.privateKeyToAccount(p_key)
 
-    factory = Factory(config.get_dex()['factory']['address'], get_abi(config.get_dex()['factory']['abi']), wallet=account)
+    factory = Factory(config.get_dex()['factory']['address'], get_abi(config.get_dex()['factory']['abi']),
+                      wallet=account)
     router = Router(config.get_dex()['router']['address'], get_abi(config.get_dex()['router']['abi']), wallet=account)
-    token_in = Token(config.get_token_address(args.input_token), get_abi(config.get_token_abi(args.input_token)), wallet=account)
+    token_in = Token(config.get_token_address(args.input_token), get_abi(config.get_token_abi(args.input_token)),
+                     wallet=account)
 
     initial_balance = token_in.balance_with_decimal
 
@@ -45,31 +50,18 @@ def run():
     if args.dry:
         logger.warning("Script running in dry mode!")
 
-    buy_amount = input("Buy amount: ")
+    sell_at = input("Sell at amount: ")
     token_out_addr = input("Token name or contract address: ")
 
     script_start = time.time()
-    start = time.time()
-    token_out = Token(config.get_token_address(token_out_addr), get_abi(config.get_token_abi(token_out_addr)), wallet=account)
+    token_out = Token(config.get_token_address(token_out_addr), get_abi(config.get_token_abi(token_out_addr)),
+                      wallet=account)
 
+    balance = token_out.balance
+    logger.info("Token balance: {}".format(balance))
     if not args.dry:
-        if args.fee:
-            tx = router.buy_with_fee(token_in, token_out, float(Web3.toWei(buy_amount, 'ether')), speed=args.speed, timeout=args.timeout)
-        else:
-            tx = router.buy(token_in, token_out, float(Web3.toWei(buy_amount, 'ether')), speed=args.speed, timeout=args.timeout)
-
-        logger.info("Buy transaction completed. {}".format(tx['transactionHash'].hex()))
-        total = time.time() - start
-        logger.info("Time took to execute transaction {}".format(total))
-
-        balance = token_out.balance
-        logger.info("Token balance: {}".format(balance))
-
         token_out.approve(router, balance)
         logger.info("Token approved to sell")
-    else:
-        balance = router.get_amounts_out(Web3.toWei(buy_amount, 'ether'), token_in, token_out)
-        logger.info("Token balance: {}".format(balance))
 
     prev_in_weth = 0
     while True:
@@ -77,15 +69,15 @@ def run():
         current_in_weth = router.get_amounts_out(balance, token_out, token_in)
 
         if prev_in_weth == current_in_weth:
-            time.sleep(3)
+            time.sleep(args.period)
             continue
         else:
             prev_in_weth = current_in_weth
 
-        multiplier = float(Web3.fromWei(current_in_weth, 'ether')) / float(buy_amount)
+        #multiplier = float(Web3.fromWei(current_in_weth, 'ether')) / float(buy_amount)
 
-        if multiplier >= args.limit:
-            logger.info("Target multiplier hit! {:.2f}/{:.2f}".format(multiplier, args.limit))
+        if float(Web3.fromWei(current_in_weth, 'ether')) >= float(sell_at):
+            logger.info("Target price hit! Selling for {:.2f}".format(float(sell_at)))
 
             if not args.dry:
                 start = time.time()
@@ -101,10 +93,9 @@ def run():
                 total = time.time() - start
                 logger.info("Time took to execute transaction {}".format(total))
 
-
                 break
 
-        logger.info("Token worth in weth: {:.4f} which is {:.2f}%".format(Web3.fromWei(current_in_weth, 'ether'), multiplier * 100))
+        logger.info("Token worth in weth: {:.4f} target: {:.4f}".format(Web3.fromWei(current_in_weth, 'ether'), float(sell_at)))
 
     logger.info("New WETH balance: {}".format(token_in.balance_with_decimal))
 
@@ -113,36 +104,6 @@ def run():
 
     logger.info("{:.6f} profit made in {:.2f}s".format(profit, time_took_to_profit))
 
-    """
-    pair = factory.get_pair(token_in, token_out, get_abi(config.get_dex()['pair']['abi']))
-
-    while True:
-        worth_in_weth = token_out.balance_with_decimal / pair.get_price()
-        sell_treshold = float(buy_amount) * 3
-
-        print("Price: ", 1/pair.get_price())
-        print("worth_in_weth: ", worth_in_weth)
-        print("sell_treshold: ", sell_treshold)
-        print("sell? ", worth_in_weth >= sell_treshold)
-
-
-        if worth_in_weth >= sell_treshold:
-
-            if args.fee:
-                tx = router.buy_with_fee(token_out, token_in, token_out.balance, speed=args.speed,
-                                         timeout=args.timeout)
-            else:
-                tx = router.buy(token_out, token_in, token_out.balance, speed=args.speed,
-                                timeout=args.timeout)
-            
-
-            print("Sell transaction: ", tx['transactionHash'].hex())
-            break
-
-        time.sleep(1)
-
-        print("Currently worth: {} | Waiting for {}".format(worth_in_weth, sell_treshold))
-    """
 
 if __name__ == "__main__":
     run()

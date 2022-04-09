@@ -18,7 +18,6 @@ class Token(IContract):
         if amount is None:
             amount = self.MAX_AMOUNT
 
-        print("Amount: ", amount)
         func = self.contract.functions.approve(spender.address, int(amount))
         params = self._create_transaction_params()
         return self._send_transaction(func, params)
@@ -29,7 +28,6 @@ class Token(IContract):
             amount = self.MAX_AMOUNT
 
         approved_amount = self.contract.functions.allowance(self._wallet.address, spender.address).call()
-        print("Approved amount: ", approved_amount)
         return approved_amount >= amount
 
     @property
@@ -49,6 +47,10 @@ class Token(IContract):
     @property
     def symbol(self):
         return self.contract.functions.symbol().call()
+
+    @property
+    def launch_time(self):
+        return self.contract.functions.launchTime().call()
 
 class Erc20(Token):
 

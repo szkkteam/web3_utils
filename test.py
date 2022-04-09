@@ -5,6 +5,7 @@ import json
 import argparse
 from datetime import datetime, timedelta
 import time
+from web3 import Web3
 from web3_utils import Router, Token, Web3Provider, get_abi, Config, Factory, Pair
 
 p_key = os.environ.get('PRIVATE_KEY')
@@ -26,21 +27,39 @@ def run():
     w3 = Web3Provider(Web3Provider.HTTPProvider(config.http_provider))
     account = w3.eth.account.privateKeyToAccount(p_key)
 
-    factory = Factory(config.get_dex()['factory']['address'], get_abi(config.get_dex()['factory']['abi']))
+    #token_out_addr = input("Token name or contract address: ")
 
-    token_in = Token(config.get_token_address('weth'), get_abi(config.token_abi), wallet=account)
-    token_out = Token(config.get_token_address('dai'), get_abi(config.token_abi), wallet=account)
+    router = Router(config.get_dex()['router']['address'], get_abi(config.get_dex()['router']['abi']), wallet=account)
+    token_out = Token(config.get_token_address("0xe097bcEb09bfb18047Cf259F321cC129b7bEba5e"), get_abi("tipsy.json"), wallet=account)
+    token_in = Token(config.get_token_address('wbnb'), get_abi(config.get_token_abi('wbnb')),
+                     wallet=account)
 
-    pair = factory.get_pair(token_in, token_out, get_abi(config.get_dex()['pair']['abi']))
-    print("Price: ", pair.get_price())
+    print("Waiting for launch time to set...")
+    while token_out.launch_time == 0:
+        time.sleep(1)
 
 
-    print("Balance dai: ", token_out.balance_with_decimal)
+    real_launch_time = token_out.launch_time
+    print("Launch time set!: ", real_launch_time)
+
+    while True:
+        if int(time.time()) >= (real_launch_time + 6):
+            print("6 sec elapsed!")
+            break
+        else:
+            time.sleep(1)
+
+    start = time.time()
+    tx = router.buy(token_in, token_out, float(Web3.toWei(1, 'ether')), speed=args.speed, timeout=args.timeout)
+    print("Tx: ", tx['transactionHash'].hex())
+    total = time.time() - start
+    print("Time took to execute transaction: {}s".format(total))
 
     sys.exit(0)
 
-    router = Router(config.get_dex()['router']['address'], get_abi(config.get_dex()['router']['abi']), wallet=account)
+
     token_in = Token(config.get_token_address('weth'), get_abi(config.token_abi), wallet=account)
+    token_in.approve(spender=router)
 
     if not token_in.is_approved:
         token_in.approve(spender=router)

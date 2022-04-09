@@ -24,7 +24,7 @@ class IContract (object):
         web3 = Web3Provider()
 
         self._wallet = kwargs.get('wallet', None)
-        self.gas_limit = 210000
+        self.gas_limit = 605000
         self.address = Web3.toChecksumAddress(address)
         self.contract = web3.eth.contract(self.address, abi=self._get_abi(abi))
 
@@ -68,7 +68,7 @@ class IContract (object):
         if not max_priority_fee:
             max_priority_fee = Web3.toWei(1.5, 'gwei')
         if not max_fee_per_gas:
-            max_fee_per_gas = web3.eth.gas_price + max_priority_fee
+            max_fee_per_gas = web3.eth.gas_price * 2 + max_priority_fee
 
         return {
             'from': self._wallet.address,
