@@ -5,6 +5,7 @@ import json
 # Pip package imports
 from web3 import Web3
 from functools import wraps
+from loguru import logger
 
 # Internal package improts
 from web3_utils.utils import Web3Provider
@@ -13,16 +14,19 @@ from .token import Token
 
 class Router(IContract):
 
-    def _buy(self, contract_fnc, token_in: Token, token_out: Token, amount, slippage, timeout, speed):
+    def _swap(self, contract_fnc, token_in: Token, token_out: Token, amount, slippage, timeout, speed):
         web3 = Web3Provider()
 
-        priority = int(Web3.toWei((5 if speed > 1 else 2) * speed, 'gwei'))
-        gas_price = int(web3.eth.gas_price * speed)
+        current_gas = web3.eth.get_block("pending")['baseFeePerGas']
+        priority = int(Web3.toWei(2 * speed, 'gwei'))
+        gas_price = int(current_gas * 1.2 * speed)
+        #gas_price = int(web3.eth.gas_price * 1.2 * speed)
 
         if gas_price < priority:
             gas_price += priority
 
         if not token_in.is_approved(self, amount):
+            logger.info("Approving {} tokens {}".format(token_in.address, amount))
             token_in.approve(self, amount)
 
         func = contract_fnc(
@@ -36,15 +40,28 @@ class Router(IContract):
         return self._send_transaction(func, params)
 
     @require_connected
-    def buy(self, token_in: Token, token_out: Token, amount, slippage=0.01, timeout=1000, speed=1):
-        return self._buy(self.contract.functions.swapExactTokensForTokens, token_in, token_out, amount, slippage, timeout, speed)
+    def swap(self, token_in: Token, token_out: Token, amount, max_out=None, slippage=0.01, timeout=1000, speed=1, fee=None):
+        web3 = Web3Provider()
 
-    @require_connected
-    def buy_with_fee(self, token_in: Token, token_out: Token, amount, slippage=0.01, timeout=1000, speed=1):
-        return self._buy(self.contract.functions.swapExactTokensForTokensSupportingFeeOnTransferTokens, token_in, token_out, amount, slippage,
-                         timeout, speed)
+        if fee is None:
+            fnc = self.contract.functions.swapExactTokensForTokens
+        else:
+            fnc = self.contract.functions.swapExactTokensForTokensSupportingFeeOnTransferTokens
+
+        if max_out is not None:
+            max_out = token_out.from_decimals(float(max_out))
+            amout_out = self.get_amounts_out(amount, token_in, token_out)
+            if int(amout_out) > int(max_out):
+                amount = self.get_amounts_in(max_out, token_out, token_in)
+
+        return self._swap(fnc, token_in, token_out, amount, slippage, timeout, speed)
 
     @require_connected
     def get_amounts_out(self, amount_in, token_in: Token, token_out : Token):
-        _, ret_val =  self.contract.functions.getAmountsOut(amount_in, [token_in.address, token_out.address]).call()
+        _ , ret_val =  self.contract.functions.getAmountsOut(amount_in, [token_in.address, token_out.address]).call()
+        return ret_val
+
+    @require_connected
+    def get_amounts_in(self, amount_out, token_in: Token, token_out : Token):
+        ret_val, _ = self.contract.functions.getAmountsIn(amount_out, [token_out.address, token_in.address]).call()
         return ret_val

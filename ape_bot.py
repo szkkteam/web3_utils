@@ -5,6 +5,7 @@ import json
 import argparse
 from datetime import datetime, timedelta
 import time
+from loguru import logger
 from web3 import Web3
 from web3_utils import Router, Token, Web3Provider, get_abi, Config, Factory, Pair
 
@@ -31,24 +32,26 @@ def run():
     router = Router(config.get_dex()['router']['address'], get_abi(config.get_dex()['router']['abi']), wallet=account)
     token_in = Token(config.get_token_address(args.input_token), get_abi(config.get_token_abi(args.input_token)), wallet=account)
 
-    if not token_in.is_approved(spender=router):
-        token_in.approve(spender=router)
+    #if not token_in.is_approved(spender=router):
+    #    token_in.approve(spender=router)
 
     buy_amount = input("Buy amount: ")
+    max_amount = input("Max output amount: ")
     token_out_addr = input("Token name or contract address: ")
 
+    if max_amount == "":
+        max_amount = None
 
     start = time.time()
-    token_out = Token(config.get_token_address(token_out_addr), get_abi(config.get_token_abi(token_out_addr)))
+    token_out = Token(config.get_token_address(token_out_addr), get_abi(config.get_token_abi(token_out_addr)), wallet=account)
 
-    if args.fee:
-        tx = router.buy_with_fee(token_in, token_out, float(Web3.toWei(buy_amount, 'ether')), speed=args.speed, timeout=args.timeout)
-    else:
-        tx = router.buy(token_in, token_out, float(Web3.toWei(buy_amount, 'ether')), speed=args.speed, timeout=args.timeout)
+    tx = router.swap(token_in, token_out, Web3.toWei(buy_amount, 'ether'), max_out=max_amount, speed=args.speed, timeout=args.timeout, fee=args.fee)
 
-    print("Tx: ", tx['transactionHash'].hex())
+    logger.info("Tx: {}".format(tx['transactionHash'].hex()))
     total = time.time() - start
-    print("Time took to execute transaction: {}s".format(total))
+    logger.info("Time took to execute transaction: {}s".format(total))
+
+    logger.info("Token balance: {}".format(token_out.balance_with_decimal))
 
 if __name__ == "__main__":
     run()

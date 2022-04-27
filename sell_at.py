@@ -44,8 +44,8 @@ def run():
 
     initial_balance = token_in.balance_with_decimal
 
-    if not token_in.is_approved(spender=router):
-        token_in.approve(spender=router)
+    #if not token_in.is_approved(spender=router):
+    #    token_in.approve(spender=router)
 
     if args.dry:
         logger.warning("Script running in dry mode!")
@@ -58,10 +58,11 @@ def run():
                       wallet=account)
 
     balance = token_out.balance
-    logger.info("Token balance: {}".format(balance))
+    logger.info("Token balance: {}".format(token_out.balance_with_decimal))
     if not args.dry:
-        token_out.approve(router, balance)
-        logger.info("Token approved to sell")
+        if not token_out.is_approved(router, balance):
+            token_out.approve(router, balance)
+            logger.info("Token approved to sell")
 
     prev_in_weth = 0
     while True:
@@ -82,13 +83,9 @@ def run():
             if not args.dry:
                 start = time.time()
 
-                if args.fee:
-                    tx = router.buy_with_fee(token_out, token_in, token_out.balance, speed=args.speed,
-                                             timeout=args.timeout)
-                else:
-                    tx = router.buy(token_out, token_in, token_out.balance, speed=args.speed,
-                                    timeout=args.timeout)
-
+                tx = router.swap(token_out, token_in, token_out.balance, speed=args.speed,
+                                             timeout=args.timeout, fee=args.fee)
+                
                 logger.info("Sell transaction completed. {}".format(tx['transactionHash'].hex()))
                 total = time.time() - start
                 logger.info("Time took to execute transaction {}".format(total))

@@ -53,11 +53,8 @@ def run():
     token_out = Token(config.get_token_address(token_out_addr), get_abi(config.get_token_abi(token_out_addr)), wallet=account)
 
     if not args.dry:
-        if args.fee:
-            tx = router.buy_with_fee(token_in, token_out, float(Web3.toWei(buy_amount, 'ether')), speed=args.speed, timeout=args.timeout)
-        else:
-            tx = router.buy(token_in, token_out, float(Web3.toWei(buy_amount, 'ether')), speed=args.speed, timeout=args.timeout)
-
+        tx = router.swap(token_in, token_out, Web3.toWei(buy_amount, 'ether'), speed=args.speed, timeout=args.timeout, fee=args.fee)
+        
         logger.info("Buy transaction completed. {}".format(tx['transactionHash'].hex()))
         total = time.time() - start
         logger.info("Time took to execute transaction {}".format(total))
@@ -90,12 +87,8 @@ def run():
             if not args.dry:
                 start = time.time()
 
-                if args.fee:
-                    tx = router.buy_with_fee(token_out, token_in, token_out.balance, speed=args.speed,
-                                             timeout=args.timeout)
-                else:
-                    tx = router.buy(token_out, token_in, token_out.balance, speed=args.speed,
-                                    timeout=args.timeout)
+                tx = router.swap(token_out, token_in, token_out.balance, speed=args.speed,
+                                             timeout=args.timeout, fee=args.fee)
 
                 logger.info("Sell transaction completed. {}".format(tx['transactionHash'].hex()))
                 total = time.time() - start
@@ -113,36 +106,7 @@ def run():
 
     logger.info("{:.6f} profit made in {:.2f}s".format(profit, time_took_to_profit))
 
-    """
-    pair = factory.get_pair(token_in, token_out, get_abi(config.get_dex()['pair']['abi']))
-
-    while True:
-        worth_in_weth = token_out.balance_with_decimal / pair.get_price()
-        sell_treshold = float(buy_amount) * 3
-
-        print("Price: ", 1/pair.get_price())
-        print("worth_in_weth: ", worth_in_weth)
-        print("sell_treshold: ", sell_treshold)
-        print("sell? ", worth_in_weth >= sell_treshold)
-
-
-        if worth_in_weth >= sell_treshold:
-
-            if args.fee:
-                tx = router.buy_with_fee(token_out, token_in, token_out.balance, speed=args.speed,
-                                         timeout=args.timeout)
-            else:
-                tx = router.buy(token_out, token_in, token_out.balance, speed=args.speed,
-                                timeout=args.timeout)
-            
-
-            print("Sell transaction: ", tx['transactionHash'].hex())
-            break
-
-        time.sleep(1)
-
-        print("Currently worth: {} | Waiting for {}".format(worth_in_weth, sell_treshold))
-    """
+   
 
 if __name__ == "__main__":
     run()

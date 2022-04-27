@@ -68,14 +68,16 @@ class IContract (object):
         if not max_priority_fee:
             max_priority_fee = Web3.toWei(1.5, 'gwei')
         if not max_fee_per_gas:
-            max_fee_per_gas = web3.eth.gas_price * 2 + max_priority_fee
+            current_gas = web3.eth.get_block("pending")['baseFeePerGas']
+            max_fee_per_gas = current_gas * 1.2 + max_priority_fee
+
 
         return {
             'from': self._wallet.address,
             'value': value,
             'gas': gas_limit,
-            'maxFeePerGas': max_fee_per_gas,
-            'maxPriorityFeePerGas': max_priority_fee,
+            'maxFeePerGas': int(max_fee_per_gas),
+            'maxPriorityFeePerGas': int(max_priority_fee),
             #'maxFeePerGas': 20000000000, 'maxPriorityFeePerGas': 1000000000,
             'nonce': web3.eth.getTransactionCount(self._wallet.address)
         }

@@ -52,6 +52,12 @@ class Token(IContract):
     def launch_time(self):
         return self.contract.functions.launchTime().call()
 
+    def to_decimals(self, amount) -> float:
+        return float(float(amount) / 10**self.decimals)
+
+    def from_decimals(self, amount) -> int:
+        return int(float(amount) * 10 ** self.decimals)
+
 class Erc20(Token):
 
     def __init__(self, address, *args, **kwargs):
